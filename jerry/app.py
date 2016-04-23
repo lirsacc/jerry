@@ -1,24 +1,20 @@
-import os
-
 from flask import Flask
 from flask import request
 
 import json
 import requests
 
+from jerry.config import load_conf
+
 app = Flask(__name__)
 
-PAGE_ACCESS_TOKEN = os.environ.get('JERRY_PAGE_ACCESS_TOKEN')
-SECURITY_TOKEN = os.environ.get('JERRY_SECURITY_TOKEN')
-
-assert PAGE_ACCESS_TOKEN
-assert SECURITY_TOKEN
+cfg = load_conf()
 
 NAKED_JERRY_URL = (
     'https://upload.wikimedia.org/wikipedia/en/2/2f/Jerry_Mouse.png')
 
 MSG_URL = ('https://graph.facebook.com/v2.6/me/messages?access_token=%s'
-           % PAGE_ACCESS_TOKEN)
+           % cfg['PAGE_ACCESS_TOKEN'])
 
 
 @app.route("/")
@@ -30,7 +26,7 @@ def hello():
 def webhook_get():
     hub_challenge = request.args.get('hub.challenge', None)
     hub_token = request.args.get('hub.verify_token', None)
-    if hub_token == '':
+    if hub_token == cfg['SECURITY_TOKEN']:
         return hub_challenge, 200
 
 
@@ -58,8 +54,14 @@ def send_message(recipient_id, text=None, payload=None):
 
 def handle_message(msg):
     sender_id = msg['sender']['id']
-    send_message(sender_id,
-                 text='PONG => ' + msg['message']['text'])
+    data = msg['message']
+
+    if 'text' in data:
+        send_message(sender_id,
+                     text='PONG => ' + msg['message']['text'])
+    else:
+        print(data)
+        return
 
     if 'image' in msg['message']['text'].lower():
         send_message(sender_id, payload={
