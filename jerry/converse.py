@@ -37,43 +37,82 @@ def send_message(recipient_id, text=None, payload=None):
         logger.warning("Failed to send message %s" % req.text)
 
 
+def start_conversation(user_id, db):
+    print("STARTING CONVERSATION WITH", user_id)
+    conv = Conversation(user_id)
+    inserted = r.table('conversations').insert(conv.to_dict()).run(db)
+    conv_uuid = inserted["generated_keys"][0]
+    send_message(user_id, text=messages.WELCOME)
+    send_message(user_id, text=conv.next())
+    save_conversation(conv_uuid, conv)
+
+
+def save_conversation(conv_uuid, conv):
+    # Update timestamp and save value
+    conv.access()
+    (r.table('conversations')
+     .filter(r.row['id'] == conv_uuid)
+     .update(conv.to_dict()))
+
+
 def handle(msg, db):
     sender_id = msg['sender']['id']
 
+    # Ignore ACK msgs from FB for now
+    if 'delivery' in msg:
+        return
+
     print("HANDLING")
     pprint(msg)
+    print()
 
     user = _db.one(r.table('users').filter(r.row['id'] == sender_id).run(db))
     if user is None:
-        r.table('users').insert({
-            "id": sender_id
-        }).run(db)
-        conv = Conversation()
-        r.table('conversations').insert(conv.to_dict()).run(db)
-        send_message(sender_id, text=messages.WELCOME)
+        print("NEW USER")
+        r.table('users').insert({"id": sender_id}).run(db)
+        start_conversation(sender_id, db)
 
     else:
-        conv = _db.first(
-            r.table('conversations')
-            .filter(r.row['user_id'] == sender_id)
-            .run(db)
-        )
+        print("FOUND USER")
+
+        if 'message' in msg:
+            text = msg['message']['text']
+            if text == 'help':
+                pass
+            elif 'go to' in text:
+                pass
+
+        conv = _db.first(r.table('conversations')
+                         .filter(r.row['user_id'] == sender_id)
+                         .run(db))
         if conv:
+            print("FOUND CONV")
+            conv_uuid = conv['id']
             conv = Conversation.from_dict(conv)
-            send_message(sender_id, text='Hey, I know you!')
+            next_msg = conv.next()
+            print("NEXT MESSAGE", next_msg)
+            # Conversation is not expecting input, send next prompt
+            if next_msg is not None:
+                send_message(sender_id, text=next_msg)
+                return
+            else:
+                # Handle messages as we are expecting something
+                if 'message' in msg:
+                    handle_message(msg, db, conv.handler())
+
+                if 'postback' in msg:
+                    handle_postback(msg, db, conv.handler())
+
+            save_conversation(conv_uuid, conv)
+
         else:
-            send_message(sender_id, text=messages.WELCOME)
-
-    if 'message' in msg:
-        handle_message(msg, db)
-
-    if 'postback' in msg:
-        handle_postback(msg, db)
+            print("NEW CONV")
+            start_conversation(sender_id, db)
 
 
-def handle_message(msg, db):
+def handle_message(msg, db, handler):
     pass
 
 
-def handle_postback(msg, db):
+def handle_postback(msg, db, handler):
     pass

@@ -62,7 +62,7 @@ def webhook_post():
         for msg in messages:
             handle(msg, g.db)
 
-    return "OK", 200
+    return "", 200
 
 
 if __name__ == '__main__':
