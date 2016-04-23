@@ -32,8 +32,8 @@ def set_the_welcome_message():
 
     text = ("Hi, my name is Jerry! \n"
            "I am here to help you track your personal and business trips in "
-            "one place. To get started type 'go to Munich Hbf'.\n"
-            "Enjoy :)")
+            "one place. To get started type:\n"
+            "go to Munich\n")
     print(text)
 
     data = {
