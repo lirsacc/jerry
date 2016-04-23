@@ -4,6 +4,7 @@ import re
 import rethinkdb as r
 
 import jerry.messages as m
+import jerry.generic_template as template
 
 MASTER = 'MASTER'
 SLAVE = 'SLAVE'
@@ -23,7 +24,7 @@ def extract_dest(text):
         return match.group(1)
 
 
-class attrdict(object):
+class dumb_attrdict(object):
     def __init__(self, d):
         self.__dict__ = d
 
@@ -32,13 +33,13 @@ class Conversation(object):
 
     def __init__(self, user_id):
         assert user_id
-        self._data = attrdict({
+        self._data = dumb_attrdict({
             "user_id": user_id,
             "origin": None,
             "destination": None,
             "status": MASTER,
             "time": None,
-            "options": [],
+            "options": None,
             "started_at": dt.datetime.now(r.make_timezone("00:00")),
             "accessed_at": dt.datetime.now(r.make_timezone("00:00")),
             "current_msg": None,
@@ -77,7 +78,7 @@ class Conversation(object):
     def from_dict(cls, data):
         assert isinstance(data, dict)
         obj = cls(data['user_id'])
-        obj._data = attrdict(data)
+        obj._data = dumb_attrdict(data)
         return obj
 
     def current(self):
@@ -93,8 +94,17 @@ class Conversation(object):
             return m.ORIGIN
         elif self._data.time is None:
             return m.WHEN
+        elif self._data.options is None:
+            options = template.travel_options(
+                self.get('origin'),
+                self.get('destination'),
+                self.get('time'),
+                ('train', 'car_rental')
+            )
+            self._data.options = options
+            return options
         else:
-            return "Blah..."
+            return 'Blah'
 
         return None
 

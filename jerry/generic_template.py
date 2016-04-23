@@ -1,5 +1,4 @@
 from jerry.config import load_conf
-from jerry.converse import send_message
 
 """
 Example
@@ -94,7 +93,7 @@ def create_element(title, subtitle="", image_url="", buttons=[]):
 
 def generate_generic_template(elements):
     attachment = {
-        "attachment":{
+        "attachment": {
             "type": "template",
             "payload": {
                 "template_type": "generic",
@@ -107,7 +106,7 @@ def generate_generic_template(elements):
 
 def travel_options(trip_start, trip_end, trip_time, options):
 
-    assert isinstance(options, list)
+    assert isinstance(options, (list, tuple))
     for i in options:
         assert i in ["train", "car_rental", "bike"]
 
@@ -135,31 +134,26 @@ def travel_options(trip_start, trip_end, trip_time, options):
         element = create_element(
             title="Get a Car from Hertz",
             subtitle="Car pick up in {start} at {time}. Drop off in {end}"
-                     " until {time2}".format(
-                start=trip_start, end=trip_end, time=trip_time, time2="TODO"),
+                     " until {time2}".format(start=trip_start,
+                                             end=trip_end,
+                                             time=trip_time,
+                                             time2="TODO"),
             buttons=buttons
         )
         elements.append(element)
 
     return generate_generic_template(elements)
 
-
-def send_travel_options_to_lorenz():
-    cfg = load_conf()
-    fb_user_id = cfg["LORENZ_RECIPIENT_ID"]
-    send_message(fb_user_id, payload=travel_options(
-        trip_start="München",
-        trip_end="Stuttgart",
-        trip_time="18:30",
-        options=["car_rental", "train"]
-    ))
-
-if __name__ == '__main__':
-    send_travel_options_to_lorenz()
-
-
-
-
-
-
-
+#
+# def send_travel_options_to_lorenz():
+#     cfg = load_conf()
+#     fb_user_id = cfg["LORENZ_RECIPIENT_ID"]
+#     send_message(fb_user_id, payload=travel_options(
+#         trip_start="München",
+#         trip_end="Stuttgart",
+#         trip_time="18:30",
+#         options=["car_rental", "train"]
+#     ))
+#
+# if __name__ == '__main__':
+#     send_travel_options_to_lorenz()
