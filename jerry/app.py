@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask import request
 
@@ -5,9 +7,12 @@ import json
 import requests
 
 app = Flask(__name__)
-PAGE_ACCESS_TOKEN = (
-    'XXX')
-SECURITY_TOKEN = "XXX"
+
+PAGE_ACCESS_TOKEN = os.environ.get('JERRY_PAGE_ACCESS_TOKEN')
+SECURITY_TOKEN = os.environ.get('JERRY_SECURITY_TOKEN')
+
+assert PAGE_ACCESS_TOKEN
+assert SECURITY_TOKEN
 
 NAKED_JERRY_URL = (
     'https://upload.wikimedia.org/wikipedia/en/2/2f/Jerry_Mouse.png')
