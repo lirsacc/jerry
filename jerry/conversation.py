@@ -125,22 +125,22 @@ class Conversation(object):
         if type_ in ('message'):
             orig = payload[type_]['text']
             self.set('origin', orig)
-            return True
+            return True, None
         else:
-            return False
+            return False, m.MISSED
 
     def _save_destination(self, type_, payload):
         if type_ in ('message'):
             dest = payload[type_]['text']
             self.set('destination', dest)
-            return True
+            return True, None
         else:
-            return False
+            return False, m.MISSED
 
     def _save_time(self, type_, payload):
         if type_ in ('message'):
             value = payload[type_]['text']
             self.set('time', value)
-            return True
+            return True, None
         else:
-            return False
+            return False, m.MISSED

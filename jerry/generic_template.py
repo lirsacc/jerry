@@ -1,5 +1,3 @@
-from jerry.config import load_conf
-
 """
 Example
 curl -X POST -H "Content-Type: application/json" -d '{
@@ -104,28 +102,52 @@ def generate_generic_template(elements):
     return attachment
 
 
-def travel_options(trip_start, trip_end, trip_time, options):
+def travel_options(trip_start, trip_end, trip_time, modals, distance=60):
 
-    assert isinstance(options, (list, tuple))
-    for i in options:
+    assert isinstance(modals, (list, tuple))
+    for i in modals:
         assert i in ["train", "car_rental", "bike"]
 
     elements = []
+    options_array = []
 
-    if "train" in options:
+    if "train" in modals:
+        option = {
+            'modal': 'train',
+            'distance': distance,
+            'price': int(distance * 1.8),
+            'from': trip_start + ' Hbf',
+            'to': trip_end + ' Hbf',
+            'duration': int(distance) + ' mins'
+        }
+        options_array.append(option)
+
         buttons = [
-            create_button("Book for xyz€", payload="buy_train_ticket"),
+            create_button("Book for %s" % option['price'], payload="buy_train_ticket"),
             create_button("More Journey Details", payload="train_details"),
         ]
         element = create_element(
-            title="Use DB train",
-            subtitle="Train from {start} Hbf to {end} Hbf at {time}".format(
+            title="Use DB Train",
+            subtitle="Train from {start} to {end} at {time}".format(
                 start=trip_start, end=trip_end, time=trip_time),
             buttons=buttons
         )
         elements.append(element)
 
-    if "car_rental" in options:
+    if "car_rental" in modals:
+
+        option = {
+            'modal': 'car_rental',
+            'distance': distance,
+            'price': int(distance * 2.4),
+            'from':  'Hertz, %s (Neuhausen)' % trip_start,
+            'to': 'Hertz, %s (Pragstrasse)' % trip_end,
+            'duration': int(1.2 * distance) + ' mins'
+            'pickup_time': '9AM',
+            'dropoff_time': '7PM'
+        }
+        options_array.append(option)
+
         buttons = [
             create_button("Book for xys€", payload="book_rental_car"),
             create_button("More Details", payload="rental_car_details"),
@@ -142,7 +164,7 @@ def travel_options(trip_start, trip_end, trip_time, options):
         )
         elements.append(element)
 
-    return generate_generic_template(elements)
+    return options_array, generate_generic_template(elements)
 
 #
 # def send_travel_options_to_lorenz():
