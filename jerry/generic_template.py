@@ -51,6 +51,11 @@ curl -X POST -H "Content-Type: application/json" -d '{
 }' "https://graph.facebook.com/v2.6/me/messages?access_token=<PAGE_ACCESS_TOKEN>"
 """
 
+import datetime as dt
+import random
+
+
+
 
 def create_button(title, payload="", url="", button_type="postback"):
     """
@@ -79,13 +84,19 @@ def create_button(title, payload="", url="", button_type="postback"):
     return button
 
 
-def create_element(title, subtitle="", image_url="", buttons=[]):
+def create_element(title, subtitle="", image_url="", buttons=None):
+
     element = {
         "title": title,
-        "image_url": image_url,
         "subtitle": subtitle,
-        "buttons": buttons
     }
+
+    if buttons:
+        element["buttons"] = buttons
+
+    if image_url:
+        element["image_url"] = image_url
+
     return element
 
 
@@ -102,80 +113,147 @@ def generate_generic_template(elements):
     return attachment
 
 
-def travel_options(trip_start, trip_end, trip_time, modals, distance=60):
+def travel_options(trip_start, trip_end, trip_dt, modals, distance=60):
+
+    assert isinstance(trip_dt, dt.datetime)
 
     assert isinstance(modals, (list, tuple))
     for i in modals:
-        assert i in ["train", "car_rental", "bike"]
+        assert i in ["train", "car_rental"]
 
     elements = []
     options_array = []
+
+    # :%Y-%m-%d %H:%M
+    distance = 0
+    if trip_start.lower() == "munich":
+        distance = 230
+    elif trip_start.lower() == "stuttgart":
+        distance = 160
+    else:
+        raise ValueError()
 
     if "train" in modals:
         option = {
             'modal': 'train',
             'distance': distance,
-            'price': int(distance * 1.8),
+            'price': int(distance * 0.25),
             'from': trip_start + ' Hbf',
             'to': trip_end + ' Hbf',
-            'duration': int(distance) + ' mins'
+            'duration': int(60 / 100 * distance),
         }
         options_array.append(option)
 
         buttons = [
-            create_button("Book for %s" % option['price'], payload="buy_train_ticket"),
-            create_button("More Journey Details", payload="train_details"),
+            create_button("Book Train Ticket", payload="buy_train_ticket"),
+            create_button("More Details", payload="train_details"),
         ]
         element = create_element(
-            title="Use DB Train",
-            subtitle="Train from {start} to {end} at {time}".format(
-                start=trip_start, end=trip_end, time=trip_time),
+            title="DB Train ({}€ - {}min)".format(option["price"], option["duration"]),
+            subtitle="{date:%a, %d %b} with ICE 665{p2}"
+                     " leaving from {start} at {date:%H:%M}"
+                     " and arriving in {end} at {date:%H:%M}"
+                     "".format(start=option["from"],
+                               end=option["to"],
+                               date=trip_dt,
+                               p2=random.randint(1,9)),
             buttons=buttons
         )
         elements.append(element)
 
     if "car_rental" in modals:
+        if trip_start.lower() == "munich":
+            a, b = (" (Neuhausen)", " (Pragstr.)")
+        elif trip_start.lower() == "stuttgart":
+            a, b = (" (Pragstr.)", " (HBF)")
+        else:
+            a, b = ("", "")
+        hertz_start_branch, hertz_end_branch = a,b
 
         option = {
             'modal': 'car_rental',
             'distance': distance,
-            'price': int(distance * 2.4),
-            'from':  'Hertz, %s (Neuhausen)' % trip_start,
-            'to': 'Hertz, %s (Pragstrasse)' % trip_end,
-            'duration': int(1.2 * distance) + ' mins'
-            'pickup_time': '9AM',
-            'dropoff_time': '7PM'
+            'price': int(distance * 0.33),
+            'from':  'Hertz %s%s' % (trip_start, hertz_start_branch),
+            'to': 'Hertz %s%s' % (trip_end, hertz_end_branch),
+            'duration': int(0.8 * distance),
+            'pickup_time': trip_dt - dt.timedelta(hours=2),
+            'dropoff_time': trip_dt + dt.timedelta(minutes=distance, hours=1)
         }
         options_array.append(option)
 
         buttons = [
-            create_button("Book for xys€", payload="book_rental_car"),
+            create_button("Book car", payload="book_rental_car"),
             create_button("More Details", payload="rental_car_details"),
         ]
 
         element = create_element(
-            title="Get a Car from Hertz",
-            subtitle="Car pick up in {start} at {time}. Drop off in {end}"
-                     " until {time2}".format(start=trip_start,
-                                             end=trip_end,
-                                             time=trip_time,
-                                             time2="TODO"),
+            title="Hertz car rental ({}€ - ca. {}min)".format(option["price"], option["duration"]),
+            subtitle="On {date:%a, %d %b},"
+                     " car pick up at {start} from {time1:%H:%M}."
+                     " Dropoff at {end} until {time2:%H:%M}."
+                     "".format(date=trip_dt,
+                               time1=option["pickup_time"],
+                               time2=option["dropoff_time"],
+                               start=option["from"],
+                               end=option["to"]),
             buttons=buttons
         )
         elements.append(element)
 
     return options_array, generate_generic_template(elements)
 
-#
+
+def travel_confirmation(modal):
+    assert modal in ["car_rental", "train"]
+
+    r_id = random.randint(10000, 99999)
+
+    if modal == "car_rental":
+        element = create_element(
+            title="Your Hertz Reservation (Nr. %s)" % r_id,
+            subtitle="Cancel it by typing "
+                     "'cancel hertz {id}'".format(id=r_id),
+            image_url="http://drive.google.com/uc?export=view&"
+                      "id=0B-88jJpeaaJNLWdZVGF1S1hHZDg"
+        )
+    elif modal == "train":
+        element = create_element(
+            title="Your DB Ticket (Nr. %s)" % r_id,
+            subtitle="Cancel it by typing "
+                     "'cancel db {id}'".format(id=r_id),
+
+            image_url="http://drive.google.com/uc?export=view&"
+                      "id=0B-88jJpeaaJNUHpSaHQwTWpDWkk"
+        )
+
+    return generate_generic_template([element])
+
+
 # def send_travel_options_to_lorenz():
+#     from jerry.config import load_conf
+#     from jerry.converse import send_message
+#
 #     cfg = load_conf()
 #     fb_user_id = cfg["LORENZ_RECIPIENT_ID"]
-#     send_message(fb_user_id, payload=travel_options(
-#         trip_start="München",
+#
+#     _, payload = travel_options(
+#         trip_start="Munich",
 #         trip_end="Stuttgart",
-#         trip_time="18:30",
-#         options=["car_rental", "train"]
-#     ))
+#         trip_dt=dt.datetime(2016, 4, 28, 16),
+#         modals=["car_rental", "train"]
+#     )
+#     send_message(fb_user_id, payload=payload)
+#
+# def send_travel_confirmation_to_lorenz(modal):
+#     from jerry.config import load_conf
+#     from jerry.converse import send_message
+#     cfg = load_conf()
+#     fb_user_id = cfg["LORENZ_RECIPIENT_ID"]
+#     payload = travel_confirmation(modal)
+#     send_message(fb_user_id, payload=payload)
 #
 # if __name__ == '__main__':
 #     send_travel_options_to_lorenz()
+#     send_travel_confirmation_to_lorenz("car_rental")
+#     send_travel_confirmation_to_lorenz("train")
