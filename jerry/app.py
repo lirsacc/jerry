@@ -5,7 +5,15 @@ import json
 import requests
 
 app = Flask(__name__)
-PAGE_ACCESS_TOKEN = ''
+PAGE_ACCESS_TOKEN = (
+    'XXX')
+SECURITY_TOKEN = "XXX"
+
+NAKED_JERRY_URL = (
+    'https://upload.wikimedia.org/wikipedia/en/2/2f/Jerry_Mouse.png')
+
+MSG_URL = ('https://graph.facebook.com/v2.6/me/messages?access_token=%s'
+           % PAGE_ACCESS_TOKEN)
 
 
 @app.route("/")
@@ -39,16 +47,8 @@ def send_message(recipient_id, text=None, payload=None):
     elif payload is not None:
         data['message'] = payload
 
-    req = requests.post(
-        'https://graph.facebook.com/v2.6/me/messages?access_token=%s'
-        % PAGE_ACCESS_TOKEN,
-        json=data
-    )
-
-    if req.status_code != 200:
-        print()
-        print("ERROR", req.text)
-        print()
+    req = requests.post(MSG_URL, json=data)
+    req.raise_on_status()
 
 
 def handle_message(msg):
@@ -61,7 +61,7 @@ def handle_message(msg):
             'attachment': {
                 'type': 'image',
                 'payload': {
-                    'url': 'https://upload.wikimedia.org/wikipedia/en/2/2f/Jerry_Mouse.png'
+                    'url': NAKED_JERRY_URL
                 }
             }
         })
@@ -96,7 +96,7 @@ def handle_postback(msg):
             'attachment': {
                 'type': 'image',
                 'payload': {
-                    'url': 'https://upload.wikimedia.org/wikipedia/en/2/2f/Jerry_Mouse.png'
+                    'url': NAKED_JERRY_URL
                 }
             }
         })
