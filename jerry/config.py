@@ -2,7 +2,9 @@ import os
 
 KEYS = (
     'PAGE_ACCESS_TOKEN',
-    'SECURITY_TOKEN'
+    'SECURITY_TOKEN',
+    'RETHINK_URL',
+    'RETHINK_PORT'
 )
 
 
