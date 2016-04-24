@@ -20,9 +20,9 @@ TYPE_PRO = 'PROFESIONNAL'
 ALLOWED_TYPES = (TYPE_PRO, TYPE_PERSONAL)
 
 
-def save_option(user_id, option):
+def save_booking(user_id, option):
     db = _db.connection()
-    r.table('users').insert({
+    r.table('bookings').insert({
         'user_id': user_id,
         'options': option
     }).run(db)
@@ -267,7 +267,7 @@ class Conversation(object):
             if value == 'YES':
                 self.set('confirmed', True)
                 option = self.get('options')[self.get('selected_option')]
-                save_option(self.get('user_id'), option)
+                save_booking(self.get('user_id'), option)
                 self.set('closed', True)
                 return True, [
                     'Thank you for your booking %s' % self.get('first_name'),
