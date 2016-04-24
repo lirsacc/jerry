@@ -1,3 +1,4 @@
+import datetime as dt
 import logging
 
 from flask import Flask, request, g, abort
@@ -58,9 +59,19 @@ def webhook_post():
         return "", 200
 
     for entry in entries:
+        id_ = entry['id']
+        seen = r.table('seen_entries').get(id_).run(g.db)
+        if seen:
+            logger.warning('Duplicate receive for entry %s' % id_)
+
         messages = entry['messaging']
         for msg in messages:
             handle(msg, g.db)
+
+        seen = r.table('seen_entries').insert({
+            'id': id_,
+            'time': dt.datetime.now(r.make_timezone("00:00"))
+        }).run(g.db)
 
     return "", 200
 

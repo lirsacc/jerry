@@ -101,81 +101,81 @@ def generate_generic_template(elements):
     }
     return attachment
 
-
-def travel_options(trip_start, trip_end, trip_time, modals, distance=60):
-
-    assert isinstance(modals, (list, tuple))
-    for i in modals:
-        assert i in ["train", "car_rental", "bike"]
-
-    elements = []
-    options_array = []
-
-    if "train" in modals:
-        option = {
-            'modal': 'train',
-            'distance': distance,
-            'price': int(distance * 1.8),
-            'from': trip_start + ' Hbf',
-            'to': trip_end + ' Hbf',
-            'duration': int(distance) + ' mins'
-        }
-        options_array.append(option)
-
-        buttons = [
-            create_button("Book for %s" % option['price'], payload="buy_train_ticket"),
-            create_button("More Journey Details", payload="train_details"),
-        ]
-        element = create_element(
-            title="Use DB Train",
-            subtitle="Train from {start} to {end} at {time}".format(
-                start=trip_start, end=trip_end, time=trip_time),
-            buttons=buttons
-        )
-        elements.append(element)
-
-    if "car_rental" in modals:
-
-        option = {
-            'modal': 'car_rental',
-            'distance': distance,
-            'price': int(distance * 2.4),
-            'from':  'Hertz, %s (Neuhausen)' % trip_start,
-            'to': 'Hertz, %s (Pragstrasse)' % trip_end,
-            'duration': int(1.2 * distance) + ' mins'
-            'pickup_time': '9AM',
-            'dropoff_time': '7PM'
-        }
-        options_array.append(option)
-
-        buttons = [
-            create_button("Book for xys€", payload="book_rental_car"),
-            create_button("More Details", payload="rental_car_details"),
-        ]
-
-        element = create_element(
-            title="Get a Car from Hertz",
-            subtitle="Car pick up in {start} at {time}. Drop off in {end}"
-                     " until {time2}".format(start=trip_start,
-                                             end=trip_end,
-                                             time=trip_time,
-                                             time2="TODO"),
-            buttons=buttons
-        )
-        elements.append(element)
-
-    return options_array, generate_generic_template(elements)
-
 #
-# def send_travel_options_to_lorenz():
-#     cfg = load_conf()
-#     fb_user_id = cfg["LORENZ_RECIPIENT_ID"]
-#     send_message(fb_user_id, payload=travel_options(
-#         trip_start="München",
-#         trip_end="Stuttgart",
-#         trip_time="18:30",
-#         options=["car_rental", "train"]
-#     ))
+# def travel_options(trip_start, trip_end, trip_time, modals, distance=60):
 #
-# if __name__ == '__main__':
-#     send_travel_options_to_lorenz()
+#     assert isinstance(modals, (list, tuple))
+#     for i in modals:
+#         assert i in ["train", "car_rental", "bike"]
+#
+#     elements = []
+#     options_array = []
+#
+#     if "train" in modals:
+#         option = {
+#             'modal': 'train',
+#             'distance': distance,
+#             'price': int(distance * 1.8),
+#             'from': trip_start + ' Hbf',
+#             'to': trip_end + ' Hbf',
+#             'duration': int(distance) + ' mins'
+#         }
+#         options_array.append(option)
+#
+#         buttons = [
+#             create_button("Book for %s" % option['price'], payload="buy_train_ticket"),
+#             create_button("More Journey Details", payload="train_details"),
+#         ]
+#         element = create_element(
+#             title="Use DB Train",
+#             subtitle="Train from {start} to {end} at {time}".format(
+#                 start=trip_start, end=trip_end, time=trip_time),
+#             buttons=buttons
+#         )
+#         elements.append(element)
+#
+#     if "car_rental" in modals:
+#
+#         option = {
+#             'modal': 'car_rental',
+#             'distance': distance,
+#             'price': int(distance * 2.4),
+#             'from':  'Hertz, %s (Neuhausen)' % trip_start,
+#             'to': 'Hertz, %s (Pragstrasse)' % trip_end,
+#             'duration': int(1.2 * distance) + ' mins'
+#             'pickup_time': '9AM',
+#             'dropoff_time': '7PM'
+#         }
+#         options_array.append(option)
+#
+#         buttons = [
+#             create_button("Book for xys€", payload="book_rental_car"),
+#             create_button("More Details", payload="rental_car_details"),
+#         ]
+#
+#         element = create_element(
+#             title="Get a Car from Hertz",
+#             subtitle="Car pick up in {start} at {time}. Drop off in {end}"
+#                      " until {time2}".format(start=trip_start,
+#                                              end=trip_end,
+#                                              time=trip_time,
+#                                              time2="TODO"),
+#             buttons=buttons
+#         )
+#         elements.append(element)
+#
+#     return options_array, generate_generic_template(elements)
+#
+# #
+# # def send_travel_options_to_lorenz():
+# #     cfg = load_conf()
+# #     fb_user_id = cfg["LORENZ_RECIPIENT_ID"]
+# #     send_message(fb_user_id, payload=travel_options(
+# #         trip_start="München",
+# #         trip_end="Stuttgart",
+# #         trip_time="18:30",
+# #         options=["car_rental", "train"]
+# #     ))
+# #
+# # if __name__ == '__main__':
+# #     send_travel_options_to_lorenz()

@@ -13,6 +13,7 @@ if __name__ == '__main__':
             'Flask==0.10.1',
             'requests==2.9.1',
             'rethinkdb==2.3.0.post1',
+            'parsedatetime==2.1',
         ],
         cmdclass={}
     )

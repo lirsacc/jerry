@@ -19,6 +19,13 @@ MSG_URL = ('https://graph.facebook.com/v2.6/me/messages?access_token=%s'
 
 def send_message(recipient_id, payload):
     assert payload
+
+    if isinstance(payload, list):
+        return [
+            send_message(recipient_id, payload_)
+            for payload_ in payload
+        ]
+
     data = {
         'recipient': {
             'id': recipient_id
@@ -42,9 +49,9 @@ def send_message(recipient_id, payload):
         logger.warning("Failed to send message %s" % req.text)
 
 
-def start_conversation(user_id, db, destination=None):
-    print("STARTING CONVERSATION WITH", user_id)
-    conv = Conversation(user_id)
+def start_conversation(user, db, destination=None):
+    print("STARTING CONVERSATION WITH", user)
+    conv = Conversation(user)
     print("INSERTING")
     pprint(conv.to_dict())
     inserted = r.table('conversations').insert(conv.to_dict()).run(db)
@@ -75,7 +82,7 @@ def initiate(msg, sender, db):
 
     print("NEW CONV")
     send_message(sender['id'], m.HELLO % sender['first_name'])
-    cid, conv = start_conversation(sender['id'], db)
+    cid, conv = start_conversation(sender, db)
 
     destination_match = extract_dest(msg['message']['text'])
 
@@ -89,6 +96,7 @@ def initiate(msg, sender, db):
 
 
 def handle(msg, db):
+
     sender_id = msg['sender']['id']
 
     print('-------------------------------------------------------------------')
@@ -113,7 +121,7 @@ def handle(msg, db):
         first_name = u.get_first_name_of_user(sender_id)
         sender = {
             "id": sender_id,
-            "first_name": first_name
+            "first_name": first_name,
         }
         r.table('users').insert(sender).run(db)
         initiate(msg, sender, db)
@@ -129,6 +137,16 @@ def handle(msg, db):
             conv = Conversation.from_dict(conv)
 
         if conv and not conv.get('closed'):
+
+            # In case you use go to, reset conversation
+            if 'message' in msg:
+                destination_match = extract_dest(msg['message']['text'])
+                if destination_match:
+                    conv.set('closed', True)
+                    save_conversation(conv.get('id'), conv, db)
+                    initiate(msg, sender, db)
+                    return
+
             print("FOUND OLD CONV", conv.get('status'))
 
             if conv.is_master():
@@ -139,19 +157,39 @@ def handle(msg, db):
                     conv.enslave()
             else:  # conv.is_slave()
                 # Handle messages as we are expecting something
-                if 'message' in msg:
-                    yield_ = handle_message(msg, db, conv.handler())
+                backup_conv = conv.to_dict()
+                try:
+                    handler = conv.handler()
+                    yield_, feedback = False, None
+                    if 'message' in msg:
+                        yield_, feedback = handle_message(msg, db, handler)
+                    elif 'postback' in msg:
+                        yield_, feedback = handle_postback(msg, db, handler)
 
-                if 'postback' in msg:
-                    yield_ = handle_postback(msg, db, conv.handler())
-
-                conv.free()
-                if yield_:
-                    next_msg = conv.next()
-                    print("NEXT MESSAGE =>", next_msg)
-                    if next_msg is not None:
-                        send_message(sender_id, next_msg)
+                    conv.free()
+                    if yield_:
+                        if feedback is not None:
+                            send_message(sender_id, feedback)
+                        next_msg = conv.next()
+                        print("NEXT MESSAGE =>", next_msg)
+                        if next_msg is not None:
+                            send_message(sender_id, next_msg)
+                            conv.enslave()
+                    elif feedback:
+                        send_message(sender_id, feedback)
                         conv.enslave()
+                    else:
+                        send_message(sender_id, m.MISSED)
+                        conv.enslave()
+                except (ValueError, AssertionError) as ex:
+                    # Something went wrong, cancel it all out
+                    # Ideally this would determined the error kind and
+                    # send details regarding how to solve the problem.
+                    logger.warning(str(ex))
+                    conv = Conversation.from_dict(backup_conv)
+                    conv.set('id', backup_conv.id)
+                    conv.enslave()
+                    send_message(sender_id, m.MISSED)
 
             save_conversation(conv.get('id'), conv, db)
 
@@ -165,5 +203,5 @@ def handle_message(msg, db, handler):
 
 
 def handle_postback(msg, db, handler):
-    print("HANDLE POSTBACK")
+    print("HANDLE POSTBACK", msg['postback']['payload'])
     return handler('postback', msg)
