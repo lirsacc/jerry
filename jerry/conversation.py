@@ -1,5 +1,7 @@
 """
 State machine to represent the booking process as a conversation
+Not perfect at the moment as some transitions are pure and  replayable while
+some have side effects which can lead to a somewhat awkward flow.
 """
 import datetime as dt
 import re
@@ -32,7 +34,7 @@ def _pass(*a, **kw):
     pass
 
 GOTO_RE = re.compile(
-    r'^[\w\s\']*([Gg][Oo]|[Tt]ravel|[Tt]rip)\s?[Tt][Oo]\s?(\w+)$'
+    r'^[\w\s\']*(?:[Gg][Oo]|[Tt]ravel|[Tt]rip)\s?[Tt][Oo]\s?(\w+)$'
 )
 
 
@@ -41,7 +43,7 @@ def extract_dest(text):
     if match is None:
         return None
     else:
-        return match.group(1)
+        return match.groups()[-1]
 
 
 class dumb_attrdict(object):
@@ -89,7 +91,6 @@ class Conversation(object):
         return self._data.status == SLAVE
 
     def enslave(self):
-        print("ENSLAVING")
         self._data.status = SLAVE
 
     def free(self):
@@ -124,14 +125,14 @@ class Conversation(object):
         elif self._data.time is None:
             return m.WHEN
         elif self._data.options is None:
-            options = mock.make_options(
+            options, option_msg = tmpl.travel_options(
                 self.get('origin'),
                 self.get('destination'),
                 self.get('time'),
                 ('train', 'car_rental')
             )
             self._data.options = options
-            return mock.make_options_offers(options)
+            return option_msg
         elif self._data.type is None:
             return tmpl.generate_generic_template([tmpl.create_element(
                 title='Confirm',
@@ -276,8 +277,7 @@ class Conversation(object):
                         self.get('destination'),
                         self.get('time').isoformat()
                     ),
-                    mock.make_option_booking(option,
-                                             self.get('selected_option'))
+                    tmpl.travel_confirmation(option['modal'])
                 ]
             else:
                 False, m.MISSED

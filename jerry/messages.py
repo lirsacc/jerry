@@ -11,6 +11,10 @@ CONFIRM = "Your remaining mobility budget will be %s, do you confirm?"
 FINISHED = "Here's your booking confirmation for your trip from %s to %s on %s."
 MOAR = "Is there anything else I can help you with?"
 
+AMNESIA = (
+    "Well that's strange, I suddenly cannot remember anything about "
+    "our previous conversations...")
+
 HELLO = "Hi %s, nice to see you!"
 
 MISSED = "I didn't quiet get that, type 'help' to see what I can do for you."

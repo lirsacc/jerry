@@ -77,5 +77,6 @@ def webhook_post():
 
 
 if __name__ == '__main__':
+    r.table('conversations').update({'closed': True}).run(db.connection())
     app.debug = True
     app.run(port=4242)

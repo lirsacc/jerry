@@ -52,8 +52,6 @@ def send_message(recipient_id, payload):
 def start_conversation(user, db, destination=None):
     print("STARTING CONVERSATION WITH", user)
     conv = Conversation(user)
-    print("INSERTING")
-    pprint(conv.to_dict())
     inserted = r.table('conversations').insert(conv.to_dict()).run(db)
     cid = inserted["generated_keys"][0]
     print(cid)
@@ -99,17 +97,25 @@ def handle(msg, db):
 
     sender_id = msg['sender']['id']
 
-    print('-------------------------------------------------------------------')
-    print('-------------------------------------------------------------------')
-
     # Ignore ACK msgs from FB for now
     if 'delivery' in msg:
         logger.debug('Ignored delivery message: %s' % msg)
         return
 
-    if 'message' in msg and msg['message'].get('text', '') == 'help':
+    if 'message' in msg and msg['message'].get('text', '').lower() == 'help':
         send_message(sender_id, m.HELP)
         return
+
+    if 'message' in msg and msg['message'].get('text', '').lower() == 'reset':
+        (r.table('conversations')
+         .filter(r.row['user_id'] == sender_id)
+         .update({'closed': True})).run(db)
+        send_message(sender_id, m.AMNESIA)
+        return
+
+    print()
+    print('-------------------------------------------------------------------')
+    print()
 
     print("HANDLING")
     pprint(msg)
@@ -130,8 +136,10 @@ def handle(msg, db):
         print("FOUND USER")
 
         conv = _db.first(r.table('conversations')
-                         .filter(r.row['user_id'] == sender_id)
-                         .run(db))
+                         .filter({
+                            'user_id': sender_id,
+                            'closed': False
+                         }).order_by(r.desc('accessed_at')).run(db))
 
         if conv:
             conv = Conversation.from_dict(conv)
@@ -181,15 +189,15 @@ def handle(msg, db):
                     else:
                         send_message(sender_id, m.MISSED)
                         conv.enslave()
-                except (ValueError, AssertionError) as ex:
+                except (ValueError, AssertionError):
                     # Something went wrong, cancel it all out
                     # Ideally this would determined the error kind and
                     # send details regarding how to solve the problem.
-                    logger.warning(str(ex))
                     conv = Conversation.from_dict(backup_conv)
-                    conv.set('id', backup_conv.id)
+                    conv.set('id', backup_conv['id'])
                     conv.enslave()
                     send_message(sender_id, m.MISSED)
+                    raise
 
             save_conversation(conv.get('id'), conv, db)
 
