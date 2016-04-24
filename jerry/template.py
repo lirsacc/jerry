@@ -51,8 +51,12 @@ curl -X POST -H "Content-Type: application/json" -d '{
 }' "https://graph.facebook.com/v2.6/me/messages?access_token=<PAGE_ACCESS_TOKEN>"
 """
 
+
 import datetime as dt
+import logging
 import random
+
+logger = logging.getLogger(__name__)
 
 
 def create_button(title, payload="", url="", button_type="postback"):
@@ -82,7 +86,7 @@ def create_button(title, payload="", url="", button_type="postback"):
     return button
 
 
-def create_element(title, subtitle="", image_url="", buttons=None):
+def create_element(title, subtitle="", image_url="", buttons=None, **kw):
 
     element = {
         "title": title,
@@ -95,6 +99,7 @@ def create_element(title, subtitle="", image_url="", buttons=None):
     if image_url:
         element["image_url"] = image_url
 
+    element.update(kw)
     return element
 
 
@@ -109,6 +114,23 @@ def generate_generic_template(elements):
         }
     }
     return attachment
+
+
+def receipt(elements, payment_method='Visa', currency='EUR', **kw):
+    el = {
+        "attachment": {
+            "type": "template",
+            "payload": {
+                "template_type": "receipt",
+                'currency': currency,
+                'payment_method': payment_method,
+                "elements": elements,
+                "recipient_name": "Charles Lirsac"
+            }
+        }
+    }
+    el['attachment']['payload'].update(kw)
+    return el
 
 
 def travel_options(trip_start, trip_end, trip_dt, modals, distance=60):
@@ -142,21 +164,26 @@ def travel_options(trip_start, trip_end, trip_dt, modals, distance=60):
         }
         options_array.append(option)
 
+        index = len(options_array) - 1
+
         buttons = [
-            create_button("Book Train Ticket", payload="buy_train_ticket"),
-            create_button("More Details", payload="train_details"),
+            create_button("Book Train Ticket", payload="BUY::%s" % index),
+            create_button("More Details", payload="DETAILS::%s" % index),
         ]
         element = create_element(
             title="DB Train ({}€ - {}min)".format(
                 option["price"], option["duration"]
             ),
-            subtitle="{date:%a, %d %b} with ICE 665{p2}"
-                     " leaving from {start} at {date:%H:%M}"
-                     " and arriving in {end} at {date:%H:%M}"
-                     "".format(start=option["from"],
-                               end=option["to"],
-                               date=trip_dt,
-                               p2=random.randint(1, 9)),
+            image_url="https://dl.dropboxusercontent.com/u/1248035/Screen%"
+                      "20Shot%202016-04-24%20at%2009.25.23.png",
+            subtitle="""
+                {date:%a, %d %b} with ICE 665{p2}
+                Leaving from {start} at {date:%H:%M}
+                Arriving in {end} at {date:%H:%M}
+            """.format(start=option["from"],
+                       end=option["to"],
+                       date=trip_dt,
+                       p2=random.randint(1, 9)),
             buttons=buttons
         )
         elements.append(element)
@@ -183,14 +210,16 @@ def travel_options(trip_start, trip_end, trip_dt, modals, distance=60):
         options_array.append(option)
 
         buttons = [
-            create_button("Book car", payload="book_rental_car"),
-            create_button("More Details", payload="rental_car_details"),
+            create_button("Book car", payload="BUY::%s" % index),
+            create_button("More Details", payload="DETAILS::%s" % index),
         ]
 
         element = create_element(
             title="Hertz car rental ({}€ - ca. {}min)".format(
                 option["price"], option["duration"]
             ),
+            image_url="https://dl.dropboxusercontent.com/u/1248035/"
+                      "Screen%20Shot%202016-04-24%20at%2009.25.30.png",
             subtitle="On {date:%a, %d %b},"
                      " car pick up at {start} from {time1:%H:%M}."
                      " Dropoff at {end} until {time2:%H:%M}."
@@ -207,27 +236,65 @@ def travel_options(trip_start, trip_end, trip_dt, modals, distance=60):
     return options_array, generate_generic_template(elements)
 
 
-def travel_confirmation(modal):
-    assert modal in ["car_rental", "train"]
+def travel_confirmation(modal, index, type_, price):
+    assert modal in ("car_rental", "train")
 
     r_id = random.randint(10000, 99999)
+
+    if type_ == 'PERSONAL':
+        mtd = 'Visa **** 78'
+    else:
+        mtd = 'Company mobility budget'
 
     if modal == "car_rental":
         element = create_element(
             title="Your Hertz Reservation (Nr. %s)" % r_id,
             subtitle="Cancel it by typing "
                      "'cancel hertz {id}'".format(id=r_id),
-            image_url="http://drive.google.com/uc?export=view&"
-                      "id=0B-88jJpeaaJNLWdZVGF1S1hHZDg"
+            image_url="http://drive.google.com/uc?export=view&id=0B-88jJpeaaJNLWdZVGF1S1hHZDg",
+            price=price,
         )
+
     elif modal == "train":
         element = create_element(
             title="Your DB Ticket (Nr. %s)" % r_id,
             subtitle="Cancel it by typing "
                      "'cancel db {id}'".format(id=r_id),
+            price=price,
+            image_url="http://drive.google.com/uc?export=view&id=0B-88jJpeaaJNUHpSaHQwTWpDWkk"
+        )
 
-            image_url="http://drive.google.com/uc?export=view&"
-                      "id=0B-88jJpeaaJNUHpSaHQwTWpDWkk"
+    return receipt([element], payment_method=mtd, order_number=r_id, summary={
+        'total_cost': price
+    })
+
+
+def travel_details(modal, index):
+    assert modal in ("car_rental", "train")
+
+    if modal == "car_rental":
+        element = create_element(
+            title="Your Hertz Reservation",
+            subtitle="Moar details",
+            image_url="https://dl.dropboxusercontent.com/u/1248035/"
+                      "Screen%20Shot%202016-04-24%20at%2009.25.30.png",
+            buttons=[
+                create_button(
+                    title="Book rental car", payload="BUY::%s" % index),
+                create_button(title="See other options", payload="SEE_ALL"),
+            ]
+        )
+
+    elif modal == "train":
+        element = create_element(
+            title="Your DB Ticket",
+            image_url="https://dl.dropboxusercontent.com/u/1248035/Screen%"
+                      "20Shot%202016-04-24%20at%2009.25.23.png",
+            buttons=[
+                create_button(
+                    title="Book train ticket", payload="BUY::%s" % index),
+                create_button(title="See other options", payload="SEE_ALL"),
+            ]
         )
 
     return generate_generic_template([element])

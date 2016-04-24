@@ -97,6 +97,8 @@ def handle(msg, db):
 
     sender_id = msg['sender']['id']
 
+    user = _db.one(r.table('users').filter(r.row['id'] == sender_id).run(db))
+
     # Ignore ACK msgs from FB for now
     if 'delivery' in msg:
         logger.debug('Ignored delivery message: %s' % msg)
@@ -106,11 +108,25 @@ def handle(msg, db):
         send_message(sender_id, m.HELP)
         return
 
-    if 'message' in msg and msg['message'].get('text', '').lower() == 'reset':
-        (r.table('conversations')
-         .filter(r.row['user_id'] == sender_id)
-         .update({'closed': True})).run(db)
-        send_message(sender_id, m.AMNESIA)
+    if 'message' in msg and 'budget' in msg['message'].get('text', '').lower():
+        send_message(sender_id, m.BUDGET)
+        return
+
+    if (
+        'message' in msg and
+        msg['message'].get('text', '').split(' ')[0].lower()
+            in ('reset', 'restart')
+    ):
+        logger.warning('Reset required for user %s' % sender_id)
+        changes = (r.table('conversations')
+                   .filter(r.row['user_id'] == sender_id)
+                   .update({'closed': True})
+                   .run(db))
+        if changes['replaced'] > 0:
+            send_message(sender_id, m.AMNESIA)
+
+        if user is not None:
+            initiate(msg, user, db)
         return
 
     print()
@@ -121,7 +137,6 @@ def handle(msg, db):
     pprint(msg)
     print()
 
-    user = _db.one(r.table('users').filter(r.row['id'] == sender_id).run(db))
     if user is None:
         print("NEW USER")
         first_name = u.get_first_name_of_user(sender_id)
@@ -196,8 +211,8 @@ def handle(msg, db):
                     conv = Conversation.from_dict(backup_conv)
                     conv.set('id', backup_conv['id'])
                     conv.enslave()
-                    send_message(sender_id, m.MISSED)
-                    raise
+                    send_message(sender_id, m.ISSUE)
+                    initiate(msg, user, db)
 
             save_conversation(conv.get('id'), conv, db)
 

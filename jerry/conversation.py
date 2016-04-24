@@ -11,8 +11,7 @@ import rethinkdb as r
 
 import jerry.messages as m
 import jerry.db as _db
-import jerry.mock_templates as mock
-import jerry.generic_template as tmpl
+import jerry.template as tmpl
 
 MASTER = 'MASTER'
 SLAVE = 'SLAVE'
@@ -34,16 +33,24 @@ def _pass(*a, **kw):
     pass
 
 GOTO_RE = re.compile(
-    r'^[\w\s\']*(?:[Gg][Oo]|[Tt]ravel|[Tt]rip)\s?[Tt][Oo]\s?(\w+)$'
-)
+    r'^[\w\s\']*(?:[Gg][Oo]|[Tt]ravel|[Tt]rip)\s?[Tt][Oo]\s?(\w+)$')
+FROM_RE = re.compile(r'^[\w\s\']*\s?(:?[Ff]rom|FROM)\s?(\w+)$')
 
 
-def extract_dest(text):
-    match = GOTO_RE.match(text)
+def _extract(re_, text):
+    match = re_.match(text)
     if match is None:
         return None
     else:
         return match.groups()[-1]
+
+
+def extract_orig(text):
+    return _extract(FROM_RE, text)
+
+
+def extract_dest(text):
+    return _extract(GOTO_RE, text)
 
 
 class dumb_attrdict(object):
@@ -135,8 +142,7 @@ class Conversation(object):
             return option_msg
         elif self._data.type is None:
             return tmpl.generate_generic_template([tmpl.create_element(
-                title='Confirm',
-                subtitle=m.TYPE,
+                title=m.TYPE,
                 buttons=[
                     tmpl.create_button("Business", payload=TYPE_PRO),
                     tmpl.create_button("Personal", payload=TYPE_PERSONAL)
@@ -179,7 +185,11 @@ class Conversation(object):
     def _save_origin(self, type_, payload, **kw):
         if type_ in ('message'):
             orig = payload[type_]['text']
-            self.set('origin', orig)
+            match = extract_dest(orig)
+            if match:
+                self.set('origin', match)
+            else:
+                self.set('origin', orig)
             return True, None
         else:
             return False, m.MISSED
@@ -187,7 +197,11 @@ class Conversation(object):
     def _save_destination(self, type_, payload, **kw):
         if type_ in ('message'):
             dest = payload[type_]['text']
-            self.set('destination', dest)
+            match = extract_dest(dest)
+            if match:
+                self.set('destination', match)
+            else:
+                self.set('destination', dest)
             return True, None
         else:
             return False, m.MISSED
@@ -234,9 +248,15 @@ class Conversation(object):
                 return True, 'Great, just one more thing'
             elif action == 'DETAILS':
                 opt = self.get('options')[opt_index]
-                return False, mock.make_option_details(opt, opt_index)
+                return False, tmpl.travel_details(opt['modal'], opt_index)
             elif action == 'SEE_ALL':
-                return False, mock.make_options_offers(self.get('options'))
+                _, option_msg = tmpl.travel_options(
+                    self.get('origin'),
+                    self.get('destination'),
+                    self.get('time'),
+                    ('train', 'car_rental')
+                )
+                return False, option_msg
 
         else:
             return False, m.MISSED
@@ -271,13 +291,17 @@ class Conversation(object):
                 save_booking(self.get('user_id'), option)
                 self.set('closed', True)
                 return True, [
-                    'Thank you for your booking %s' % self.get('first_name'),
                     m.FINISHED % (
                         self.get('origin'),
                         self.get('destination'),
-                        self.get('time').isoformat()
+                        self.get('time').strftime("%c")
                     ),
-                    tmpl.travel_confirmation(option['modal'])
+                    tmpl.travel_confirmation(
+                        option['modal'],
+                        self.get('selected_option'),
+                        self.get('type'),
+                        option['price'],
+                    )
                 ]
             else:
                 False, m.MISSED

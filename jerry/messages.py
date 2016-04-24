@@ -15,6 +15,16 @@ AMNESIA = (
     "Well that's strange, I suddenly cannot remember anything about "
     "our previous conversations...")
 
+ISSUE = (
+    "Whoops... something seems to have gone wrong in my grammar processor. "
+    "I am very sorry about this, shall we try again?")
+
+BUDGET = ("""
+Your remaining budget is:
+- Business: 2570 EUR
+- Personal: 1260 EUR
+""")
+
 HELLO = "Hi %s, nice to see you!"
 
 MISSED = "I didn't quiet get that, type 'help' to see what I can do for you."
